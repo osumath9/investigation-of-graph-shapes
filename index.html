@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>그래프의 개형 발견하기</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- KaTeX CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <!-- KaTeX JS -->
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    
+    <style>
+        .touch-none { touch-action: none; }
+        .hidden-el { display: none !important; }
+        .tab-btn { transition: all 0.2s ease-in-out; white-space: nowrap; }
+        .tab-btn.active { background-color: #2563eb; color: white; border-color: #2563eb; }
+        .tab-btn.inactive { background-color: #f3f4f6; color: #4b5563; border-color: #d1d5db; }
+        body { font-size: 18px; }
+    </style>
+</head>
+<body class="bg-blue-50 text-gray-800 h-screen flex flex-col font-sans overflow-hidden">
+
+    <!-- 상단 패딩 축소 (p-4 -> py-3 px-4) -->
+    <header class="bg-white shadow-sm py-3 px-4 shrink-0 z-10 flex flex-col items-center">
+        <h1 class="text-xl md:text-2xl font-bold text-center mb-2 text-blue-900">어떤 상황인지 그래프로 그려볼까요?</h1>
+        <div id="tabs-container" class="flex overflow-x-auto gap-2 pb-1 scrollbar-hide justify-start md:justify-center px-2 w-full max-w-5xl">
+            <!-- 탭 버튼 JS 동적 생성 -->
+        </div>
+    </header>
+
+    <!-- 메인 영역 최대 너비 확장 (max-w-6xl -> max-w-[1400px]) -->
+    <main class="flex-1 flex flex-col md:flex-row gap-4 p-3 md:p-4 min-h-0 w-full max-w-[1400px] mx-auto">
+        
+        <!-- 좌측: 영상 패널 -->
+        <div class="flex-1 bg-white rounded-xl shadow-md flex flex-col border border-gray-200 min-h-0">
+            <div class="p-3 md:p-4 bg-gray-50 rounded-t-xl border-b border-gray-200">
+                <h2 id="scenario-title" class="text-lg md:text-xl font-bold text-blue-800 mb-1 md:mb-2">시나리오 제목</h2>
+                <p id="scenario-desc" class="text-gray-700 text-sm md:text-base leading-snug md:leading-relaxed min-h-[3rem]">시나리오 설명</p>
+            </div>
+            <!-- 캔버스 max-w, max-h 제한 해제하여 영역 꽉 채움 -->
+            <div class="flex-1 relative p-2 md:p-4 flex justify-center items-center overflow-hidden bg-white">
+                <canvas id="visual-canvas" class="w-full h-full"></canvas>
+            </div>
+            <div class="p-2 md:p-3 bg-gray-100 rounded-b-xl border-t border-gray-200 flex justify-center items-center">
+                <button id="btn-video" class="px-5 py-2 md:px-6 md:py-2.5 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700 transition flex items-center gap-2">
+                    <span>▶</span> <span id="btn-video-text">상황 영상 보기</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 우측: 그래프 패널 -->
+        <div class="flex-1 bg-white rounded-xl shadow-md flex flex-col border border-gray-200 min-h-0">
+            <div class="p-3 md:p-4 bg-gray-50 rounded-t-xl border-b border-gray-200 flex justify-between items-center h-[70px] md:h-[90px]">
+                <h2 class="text-lg md:text-xl font-bold text-blue-800">예상 그래프 그리기</h2>
+                <button id="btn-reset" class="px-3 py-1.5 md:px-4 md:py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition text-sm font-semibold hidden-el">
+                    지우고 다시 그리기
+                </button>
+            </div>
+            
+            <!-- 캔버스 max-w, max-h 제한 해제하여 영역 꽉 채움 -->
+            <div class="flex-1 relative p-2 md:p-4 flex justify-center items-center overflow-hidden bg-white" id="graph-container">
+                <canvas id="graph-canvas" class="w-full h-full touch-none rounded-lg border-2 border-gray-300 bg-white"></canvas>
+                
+                <div id="draw-overlay" class="absolute inset-0 bg-white/70 flex flex-col justify-center items-center z-10 transition-opacity duration-300 rounded-lg">
+                    <div id="draw-prompt" class="text-gray-700 font-bold text-center bg-white px-4 py-2 md:px-5 md:py-3 rounded-xl shadow-md border border-gray-200 text-sm md:text-base">
+                        먼저 왼쪽의 <b>[상황 영상 보기]</b>를 눌러<br>어떤 변화가 일어나는지 관찰하세요.
+                    </div>
+                </div>
+
+                <div id="result-banner" class="absolute top-4 right-6 bg-blue-100/95 text-blue-900 font-bold px-4 py-1.5 rounded-lg shadow text-xs md:text-sm z-20 hidden-el border border-blue-300 whitespace-nowrap">
+                    정답과 내 예상 비교 중 👀
+                </div>
+            </div>
+            
+            <div class="p-2 md:p-3 bg-gray-100 rounded-b-xl border-t border-gray-200 flex justify-center items-center">
+                <button id="btn-result" class="px-5 py-2 md:px-6 md:py-2.5 bg-blue-600 text-white rounded-lg font-bold shadow opacity-50 cursor-not-allowed transition hover:bg-blue-700 flex items-center gap-2" disabled>
+                    <span>✓</span> <span>실제 변화 확인하기</span>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 하단 패딩 축소 (p-4 -> py-2 px-4) -->
+    <footer class="bg-white py-2 px-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] shrink-0 flex justify-center items-center z-10 min-h-[50px]">
+        <div id="feedback-msg" class="text-base md:text-xl font-semibold text-gray-700 w-full text-center px-4">
+            안내 메시지
+        </div>
+    </footer>
+
+    <script>
+        /*******************************************************
+         * 1. 시나리오 데이터 (완전히 새롭게 개편된 5종)
+         *******************************************************/
+        const SCENARIOS = [
+            {
+                id: 's1',
+                title: '1. 비행기의 여행',
+                desc: '비행기가 이륙하여 일정 고도를 날아가다가 목적지에 착륙합니다. <br>시간(\\(x\\))에 따른 비행기의 고도(\\(y\\))를 예상해 그려보세요.',
+                yAxisLabel: '고도 (\\(y\\))',
+                logic: (t) => {
+                    if (t < 0.25) return (t / 0.25) * 0.8;
+                    if (t < 0.75) return 0.8;
+                    return (1 - (t - 0.75) / 0.25) * 0.8;
+                },
+                drawVisual: (ctx, w, h, t) => drawAirplane(ctx, w, h, t)
+            },
+            {
+                id: 's2',
+                title: '2. 물의 온도',
+                desc: '얼음이 담긴 물을 가열합니다. 얼음이 다 녹을 때까지는 0°C를 유지하고, 온도가 오르다가 물이 끓기 시작하면 다시 100°C를 유지합니다. <br>시간(\\(x\\))에 따른 물의 온도(\\(y\\))는 어떻게 변할까요?',
+                yAxisLabel: '온도 (\\(y\\))',
+                logic: (t) => {
+                    if (t < 0.2) return 0.1; // 얼음 녹는 중 (0도)
+                    if (t < 0.7) return 0.1 + ((t - 0.2) / 0.5) * 0.8; // 가열 중 (온도 상승)
+                    return 0.9; // 물이 끓는 중 (100도)
+                },
+                drawVisual: (ctx, w, h, t) => drawWaterTemp(ctx, w, h, t)
+            },
+            {
+                id: 's3',
+                title: '3. 남은 케이크 양',
+                desc: '사람이 케이크를 한 입씩 나누어 먹고 있습니다. 먹을 때마다 케이크 양이 줄어듭니다. 시간(\\(x\\))에 따른 남은 케이크의 무게(\\(y\\))를 그려보세요.',
+                yAxisLabel: '무게 (\\(y\\))',
+                logic: (t) => {
+                    // 계단식 감소 (Step function)
+                    if (t < 0.2) return 0.9; // 5조각
+                    if (t < 0.4) return 0.7; // 4조각
+                    if (t < 0.6) return 0.5; // 3조각
+                    if (t < 0.8) return 0.3; // 2조각
+                    if (t < 0.95) return 0.1; // 1조각
+                    return 0.0; // 다 먹음
+                },
+                drawVisual: (ctx, w, h, t) => drawCake(ctx, w, h, t)
+            },
+            {
+                id: 's4',
+                title: '4. 걸어가는 행인',
+                desc: '천천히 걷다가, 잠시 벤치에서 쉬고, 다시 목적지를 향해 빠르게 뛰어갔습니다. <br>시간(\\(x\\))에 따른 이동 거리(\\(y\\))를 그려보세요.',
+                yAxisLabel: '이동 거리 (\\(y\\))',
+                logic: (t) => {
+                    if (t < 0.4) return (t / 0.4) * 0.2; // 걷기: 더 느리게
+                    if (t < 0.7) return 0.2; // 쉬기: 길게
+                    return 0.2 + ((t - 0.7) / 0.3) * 0.8; // 뛰기: 더 빠르게 (기울기 가파름)
+                },
+                drawVisual: (ctx, w, h, t) => drawWalkingPerson(ctx, w, h, t)
+            },
+            {
+                id: 's5',
+                title: '5. 대관람차',
+                desc: '대관람차에 탔습니다. 놀이기구는 일정한 속도로 빙글빙글 두 바퀴를 돕니다. <br>시간(\\(x\\))에 따른 탑승칸의 지면으로부터의 높이(\\(y\\))는 어떻게 변할까요?',
+                yAxisLabel: '높이 (\\(y\\))',
+                logic: (t) => {
+                    // 2주기 반복. 코사인 함수 (시작이 바닥이므로 코사인을 활용)
+                    return 0.5 - 0.4 * Math.cos(t * Math.PI * 4); 
+                },
+                drawVisual: (ctx, w, h, t) => drawFerrisWheel(ctx, w, h, t)
+            }
+        ];
+
+        /*******************************************************
+         * 2. 앱 상태 관리 (State Machine)
+         *******************************************************/
+        const PHASE = { INIT: 0, VIDEO: 1, WAIT: 2, DRAWING: 3, RESULT: 4, DONE: 5 };
+        
+        const ANIMATION_MS = 4000;
+        let currentIdx = 0;
+        let unlockedLevel = 0; 
+        let currentPhase = PHASE.INIT;
+        let currentT = 0; 
+        
+        let studentPath = [];
+        let isPointerDown = false;
+        let hasDrawn = false;
+        
+        let animStartTime = null;
+        let animReqId = null;
+
+        // DOM Elements
+        const tabsContainer = document.getElementById('tabs-container');
+        const visualCanvas = document.getElementById('visual-canvas');
+        const visualCtx = visualCanvas.getContext('2d');
+        const graphCanvas = document.getElementById('graph-canvas');
+        const graphCtx = graphCanvas.getContext('2d');
+        
+        const btnVideo = document.getElementById('btn-video');
+        const btnVideoText = document.getElementById('btn-video-text');
+        const btnReset = document.getElementById('btn-reset');
+        const btnResult = document.getElementById('btn-result');
+        
+        const overlay = document.getElementById('draw-overlay');
+        const promptText = document.getElementById('draw-prompt');
+        const resultBanner = document.getElementById('result-banner');
+        const feedbackMsg = document.getElementById('feedback-msg');
+
+        /*******************************************************
+         * 3. 초기화 및 이벤트 바인딩
+         *******************************************************/
+        function init() {
+            initTabs();
+            setupCanvasInteraction();
+            
+            window.addEventListener('resize', () => { resizeCanvas(); renderAll(); });
+            
+            btnVideo.addEventListener('click', playVideoAnimation);
+            btnResult.addEventListener('click', playResultAnimation);
+            btnReset.addEventListener('click', () => {
+                studentPath = []; hasDrawn = false;
+                setPhase(PHASE.WAIT);
+            });
+
+            loadScenario(0);
+        }
+
+        function resizeCanvas() {
+            const vRect = visualCanvas.getBoundingClientRect();
+            visualCanvas.width = vRect.width; 
+            visualCanvas.height = vRect.height;
+            
+            const gRect = graphCanvas.getBoundingClientRect();
+            graphCanvas.width = gRect.width; 
+            graphCanvas.height = gRect.height;
+        }
+
+        function initTabs() {
+            tabsContainer.innerHTML = '';
+            SCENARIOS.forEach((sc, idx) => {
+                const btn = document.createElement('button');
+                btn.id = `tab-btn-${idx}`;
+                btn.onclick = () => {
+                    if (idx <= unlockedLevel) loadScenario(idx);
+                };
+                tabsContainer.appendChild(btn);
+            });
+            updateTabsUI();
+        }
+
+        function updateTabsUI() {
+            Array.from(tabsContainer.children).forEach((btn, i) => {
+                btn.className = 'tab-btn px-4 py-2 rounded-full border-2 font-bold text-sm md:text-base shrink-0 mx-1 transition-colors duration-300 ';
+                const titleStr = SCENARIOS[i].title.split(' ')[1] + (SCENARIOS[i].title.split(' ')[2] ? ' ' + SCENARIOS[i].title.split(' ')[2] : '');
+                
+                if (i === currentIdx) {
+                    btn.className += 'bg-blue-600 text-white border-blue-600';
+                    btn.innerHTML = titleStr;
+                } else if (i <= unlockedLevel) {
+                    btn.className += 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100 cursor-pointer';
+                    btn.innerHTML = titleStr;
+                } else {
+                    btn.className += 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60';
+                    btn.innerHTML = '🔒 ' + titleStr;
+                }
+            });
+        }
+
+        /*******************************************************
+         * 4. 시나리오 로드 및 상태 제어
+         *******************************************************/
+        function loadScenario(idx) {
+            cancelAnimationFrame(animReqId);
+            currentIdx = idx;
+            
+            updateTabsUI();
+
+            const sc = SCENARIOS[currentIdx];
+            document.getElementById('scenario-title').innerHTML = sc.title;
+            const descEl = document.getElementById('scenario-desc');
+            descEl.innerHTML = sc.desc;
+            renderMathInElement(descEl, { delimiters: [{left: '\\(', right: '\\)', display: false}], throwOnError: false });
+
+            resizeCanvas();
+            studentPath = [];
+            hasDrawn = false;
+            setPhase(PHASE.INIT);
+        }
+
+        function setFeedback(msg, type = 'normal') {
+            feedbackMsg.innerHTML = msg;
+            if (type === 'success') feedbackMsg.className = "text-base md:text-xl font-bold text-green-700 w-full text-center px-4";
+            else if (type === 'highlight') feedbackMsg.className = "text-base md:text-xl font-bold text-blue-700 w-full text-center px-4";
+            else feedbackMsg.className = "text-base md:text-xl font-semibold text-gray-700 w-full text-center px-4";
+        }
+
+        function setPhase(newPhase) {
+            currentPhase = newPhase;
+            
+            if (newPhase === PHASE.INIT) {
+                currentT = 0;
+                btnVideo.disabled = false; btnVideoText.innerText = "상황 영상 보기";
+                btnResult.disabled = true; btnResult.classList.add('opacity-50', 'cursor-not-allowed'); btnResult.classList.remove('animate-pulse');
+                btnReset.classList.add('hidden-el');
+                
+                overlay.classList.remove('hidden-el');
+                resultBanner.classList.add('hidden-el');
+                
+                graphCanvas.classList.remove('border-blue-400'); graphCanvas.classList.add('border-gray-300');
+                setFeedback("왼쪽 화면의 영상을 시청하여 상황을 이해해 보세요.");
+                renderAll();
+            }
+            else if (newPhase === PHASE.VIDEO) {
+                currentT = 0;
+                btnVideo.disabled = true; btnVideoText.innerText = "상황 재생 중...";
+                overlay.classList.remove('hidden-el');
+                resultBanner.classList.add('hidden-el');
+                setFeedback("영상을 보고 시간축에 따라 값이 어떻게 변하는지 관찰 중입니다.");
+            }
+            else if (newPhase === PHASE.WAIT) {
+                currentT = 1.0; 
+                btnVideo.disabled = false; btnVideoText.innerText = "영상 다시 보기";
+                
+                overlay.classList.add('hidden-el'); 
+                resultBanner.classList.add('hidden-el');
+                
+                btnReset.classList.add('hidden-el');
+                if (!hasDrawn) {
+                    btnResult.disabled = true; btnResult.classList.add('opacity-50', 'cursor-not-allowed'); btnResult.classList.remove('animate-pulse');
+                }
+                setFeedback("이제, 영상에서 본 변화를 떠올리며 오른쪽 캔버스에 예상되는 선을 그려보세요.", "highlight");
+                graphCanvas.classList.add('border-blue-400'); graphCanvas.classList.remove('border-gray-300');
+                renderAll();
+            }
+            else if (newPhase === PHASE.DRAWING) {
+                btnReset.classList.remove('hidden-el');
+            }
+            else if (newPhase === PHASE.RESULT) {
+                currentT = 0;
+                btnVideo.disabled = true;
+                btnResult.disabled = true; btnResult.classList.add('opacity-50', 'cursor-not-allowed'); btnResult.classList.remove('animate-pulse');
+                btnReset.classList.add('hidden-el');
+                
+                overlay.classList.add('hidden-el'); 
+                resultBanner.classList.remove('hidden-el'); 
+                
+                setFeedback("영상의 변화와 정답 그래프가 함께 그려집니다. 비교해 볼까요?");
+            }
+            else if (newPhase === PHASE.DONE) {
+                currentT = 1.0;
+                btnVideo.disabled = false; btnVideoText.innerText = "영상 다시 보기";
+                btnReset.classList.remove('hidden-el');
+                
+                overlay.classList.add('hidden-el');
+                resultBanner.classList.remove('hidden-el');
+                
+                if (currentIdx === unlockedLevel && unlockedLevel < SCENARIOS.length - 1) {
+                    unlockedLevel++;
+                    updateTabsUI(); 
+                    setFeedback("잘했습니다! 👏 다음 상황 탭이 열렸습니다. 위에 있는 다음 상황을 선택하세요.", "success");
+                } else if (currentIdx === SCENARIOS.length - 1) {
+                    setFeedback("축하합니다! 🎉 모든 상황의 그래프를 성공적으로 발견했습니다.", "success");
+                } else {
+                    setFeedback("내가 그린 선과 정답 선이 어떻게 다른지 차이점을 발견했나요?", "success");
+                }
+            }
+        }
+
+        /*******************************************************
+         * 5. 애니메이션 루프
+         *******************************************************/
+        function playVideoAnimation() {
+            if (currentPhase === PHASE.VIDEO || currentPhase === PHASE.RESULT) return;
+            setPhase(PHASE.VIDEO);
+            animStartTime = performance.now();
+            animReqId = requestAnimationFrame(animLoop);
+        }
+
+        function playResultAnimation() {
+            if (!hasDrawn || currentPhase === PHASE.VIDEO || currentPhase === PHASE.RESULT) return;
+            setPhase(PHASE.RESULT);
+            animStartTime = performance.now();
+            animReqId = requestAnimationFrame(animLoop);
+        }
+
+        function animLoop(timestamp) {
+            const elapsed = timestamp - animStartTime;
+            currentT = Math.min(elapsed / ANIMATION_MS, 1.0);
+            
+            renderAll();
+
+            if (currentT < 1.0) {
+                animReqId = requestAnimationFrame(animLoop);
+            } else {
+                if (currentPhase === PHASE.VIDEO) setPhase(PHASE.WAIT);
+                else if (currentPhase === PHASE.RESULT) setPhase(PHASE.DONE);
+            }
+        }
+
+        /*******************************************************
+         * 6. 캔버스 그리기 제어 (터치/마우스)
+         *******************************************************/
+        function setupCanvasInteraction() {
+            const getPos = (e) => {
+                const rect = graphCanvas.getBoundingClientRect();
+                const scaleX = graphCanvas.width / rect.width;
+                const scaleY = graphCanvas.height / rect.height;
+                return { 
+                    x: (e.clientX - rect.left) * scaleX, 
+                    y: (e.clientY - rect.top) * scaleY 
+                };
+            };
+
+            const start = (e) => {
+                if (currentPhase !== PHASE.WAIT && currentPhase !== PHASE.DRAWING) return;
+                e.preventDefault();
+                isPointerDown = true;
+                if (currentPhase === PHASE.WAIT) setPhase(PHASE.DRAWING);
+                
+                if (!hasDrawn) studentPath = [];
+                studentPath.push(getPos(e));
+                renderAll();
+            };
+
+            const move = (e) => {
+                if (!isPointerDown) return;
+                e.preventDefault();
+                const pos = getPos(e);
+                const lastPos = studentPath[studentPath.length - 1];
+                if (Math.hypot(pos.x - lastPos.x, pos.y - lastPos.y) > 3) {
+                    studentPath.push(pos);
+                    hasDrawn = true;
+                    renderAll();
+                }
+            };
+
+            const end = (e) => {
+                if (!isPointerDown) return;
+                isPointerDown = false;
+                if (hasDrawn && currentPhase === PHASE.DRAWING) {
+                    btnResult.disabled = false;
+                    btnResult.classList.remove('opacity-50', 'cursor-not-allowed');
+                    btnResult.classList.add('animate-pulse');
+                    setFeedback("좋습니다! 그래프를 다 그렸다면 <b>[실제 변화 확인하기]</b> 버튼을 누르세요.", "highlight");
+                }
+            };
+
+            graphCanvas.addEventListener('pointerdown', start);
+            graphCanvas.addEventListener('pointermove', move);
+            window.addEventListener('pointerup', end);
+            graphCanvas.addEventListener('pointercancel', end);
+        }
+
+        /*******************************************************
+         * 7. 렌더링 코어 로직
+         *******************************************************/
+        function renderAll() {
+            visualCtx.clearRect(0, 0, visualCanvas.width, visualCanvas.height);
+            graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+
+            const sc = SCENARIOS[currentIdx];
+            
+            sc.drawVisual(visualCtx, visualCanvas.width, visualCanvas.height, currentT);
+            drawGraphBase(sc);
+
+            if (studentPath.length > 0) drawStudentPath();
+            if ((currentPhase === PHASE.RESULT || currentPhase === PHASE.DONE) && currentT > 0) {
+                drawAnswerPath(sc, currentT);
+            }
+        }
+
+        function drawGraphBase(sc) {
+            const ctx = graphCtx;
+            const w = graphCanvas.width;
+            const h = graphCanvas.height;
+            const margin = 40;
+
+            ctx.save();
+            ctx.lineWidth = 2; ctx.strokeStyle = '#374151'; ctx.fillStyle = '#374151';
+            ctx.font = "italic 16px sans-serif"; ctx.fillText("O", margin - 20, h - margin + 20);
+
+            ctx.beginPath(); ctx.moveTo(margin, h - margin + 10); ctx.lineTo(margin, margin); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(margin, margin); ctx.lineTo(margin - 5, margin + 10); ctx.lineTo(margin + 5, margin + 10); ctx.fill();
+            ctx.font = "bold 16px sans-serif";
+            const yLabel = sc.yAxisLabel.replace(/\\\(\/?/g, '').replace(/y/, 'y').trim(); 
+            ctx.fillText(yLabel, margin - 10, margin - 15);
+
+            ctx.beginPath(); ctx.moveTo(margin - 10, h - margin); ctx.lineTo(w - margin, h - margin); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(w - margin, h - margin); ctx.lineTo(w - margin - 10, h - margin - 5); ctx.lineTo(w - margin - 10, h - margin + 5); ctx.fill();
+            ctx.fillText("시간 (x)", w - margin - 40, h - margin + 25);
+
+            ctx.restore();
+        }
+
+        function drawStudentPath() {
+            const ctx = graphCtx;
+            const margin = 40;
+            ctx.save();
+            ctx.beginPath(); ctx.rect(margin, margin, graphCanvas.width - margin*2, graphCanvas.height - margin*2); ctx.clip();
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#FF8C00'; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.moveTo(studentPath[0].x, studentPath[0].y);
+            for (let i = 1; i < studentPath.length; i++) ctx.lineTo(studentPath[i].x, studentPath[i].y);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawAnswerPath(sc, progress) {
+            const ctx = graphCtx;
+            const margin = 40;
+            const drawW = graphCanvas.width - margin * 2.5;
+            const drawH = graphCanvas.height - margin * 2.5;
+
+            ctx.save();
+            ctx.beginPath(); ctx.rect(margin, margin, drawW + 20, drawH + 20); ctx.clip();
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#2563EB'; ctx.lineWidth = 5; ctx.setLineDash([8, 8]); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+            const steps = Math.floor(progress * 100); 
+            for (let i = 0; i <= steps; i++) {
+                const pt = i / 100;
+                const px = margin + pt * drawW;
+                const py = (graphCanvas.height - margin) - (sc.logic(pt) * drawH);
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.stroke();
+
+            if (steps > 0) {
+                const pt = progress;
+                const px = margin + pt * drawW;
+                const py = (graphCanvas.height - margin) - (sc.logic(pt) * drawH);
+                ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fillStyle = '#2563EB'; ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        /*******************************************************
+         * 8. 상황별 커스텀 드로잉 함수 (새로운 5종, 캔버스 비율 대응)
+         *******************************************************/
+        
+        // 1. 비행기의 여행
+        function drawAirplane(ctx, w, h, t) {
+            const sc = SCENARIOS[currentIdx];
+            const yVal = sc.logic(t);
+            const groundY = h * 0.85; const startX = w * 0.1; const endX = w * 0.9;
+
+            ctx.fillStyle = '#9CA3AF'; ctx.fillRect(0, groundY, w, h - groundY);
+            ctx.fillStyle = '#4B5563'; ctx.fillRect(startX, groundY, endX - startX, 4);
+
+            const px = startX + t * (endX - startX);
+            const py = groundY - 10 - yVal * (groundY - h * 0.2); 
+
+            ctx.save(); ctx.translate(px, py);
+            let angle = 0; if (t > 0 && t < 0.25) angle = -Math.PI / 8; else if (t > 0.75 && t < 1) angle = Math.PI / 8;
+            ctx.rotate(angle);
+            
+            ctx.fillStyle = '#1E3A8A'; ctx.beginPath(); ctx.ellipse(0, 0, 20, 6, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#3B82F6'; ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(-15, -15); ctx.lineTo(5, -15); ctx.lineTo(10, 0); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-15, -3); ctx.lineTo(-20, -12); ctx.lineTo(-12, -12); ctx.fill();
+            ctx.restore();
+        }
+
+        // 2. 물의 온도
+        function drawWaterTemp(ctx, w, h, t) {
+            const cx = w / 2 - 30; 
+            const groundY = h * 0.85;
+            
+            // 가열 기구 (버너)
+            ctx.fillStyle = '#9CA3AF'; ctx.fillRect(cx - 40, groundY, 80, 15);
+            if (t > 0 && t < 1) { 
+                ctx.fillStyle = '#EF4444';
+                ctx.beginPath(); ctx.moveTo(cx-20, groundY); ctx.lineTo(cx-10, groundY-20); ctx.lineTo(cx, groundY); ctx.lineTo(cx+10, groundY-20); ctx.lineTo(cx+20, groundY); ctx.fill();
+            }
+
+            // 비커
+            ctx.strokeStyle = '#4B5563'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(cx - 35, groundY - 90); ctx.lineTo(cx - 35, groundY - 5); ctx.lineTo(cx + 35, groundY - 5); ctx.lineTo(cx + 35, groundY - 90); ctx.stroke();
+
+            // 물
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
+            ctx.fillRect(cx - 32, groundY - 50, 64, 45);
+
+            // 얼음
+            if (t < 0.2) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${1 - t*5})`; 
+                ctx.fillRect(cx - 20, groundY - 25, 15, 15);
+                ctx.fillRect(cx + 5, groundY - 20, 15, 15);
+            }
+
+            // 기포
+            if (t > 0.7) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                const bubbleY1 = groundY - 10 - ((t * 200) % 40);
+                const bubbleY2 = groundY - 15 - ((t * 250 + 10) % 35);
+                ctx.beginPath(); ctx.arc(cx - 15, bubbleY1, 4, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(cx + 15, bubbleY2, 5, 0, Math.PI*2); ctx.fill();
+            }
+
+            // 온도계 시각화
+            const thX = cx + 90;
+            ctx.fillStyle = '#F3F4F6'; ctx.strokeStyle = '#6B7280'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.roundRect(thX - 6, groundY - 110, 12, 110, 6); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.arc(thX, groundY - 5, 12, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            
+            // 온도계 액체
+            const sc = SCENARIOS[currentIdx];
+            const yVal = sc.logic(t);
+            const liquidH = yVal * 80;
+            ctx.fillStyle = '#EF4444';
+            ctx.beginPath(); ctx.arc(thX, groundY - 5, 8, 0, Math.PI*2); ctx.fill();
+            ctx.fillRect(thX - 3, groundY - 10 - liquidH, 6, liquidH + 5);
+        }
+
+        // 3. 남은 케이크 양
+        function drawCake(ctx, w, h, t) {
+            const cx = w / 2; 
+            const cy = h / 2 + 20;
+
+            // 접시 너비 캔버스 비례
+            const plateW = Math.min(w * 0.4, 150);
+            ctx.fillStyle = '#E5E7EB'; ctx.strokeStyle = '#9CA3AF'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.ellipse(cx, cy + 20, plateW, 30, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+            // 남은 조각 수 계산
+            let slices = 5;
+            if (t >= 0.2) slices = 4;
+            if (t >= 0.4) slices = 3;
+            if (t >= 0.6) slices = 2;
+            if (t >= 0.8) slices = 1;
+            if (t >= 0.95) slices = 0;
+
+            // 조각 크기를 화면 비례로
+            const sliceWidth = Math.min(w * 0.08, 35);
+            const cakeHeight = Math.min(h * 0.2, 80);
+            const startX = cx - (5 * sliceWidth) / 2;
+
+            for (let i = 0; i < slices; i++) {
+                const x = startX + i * sliceWidth;
+                
+                ctx.fillStyle = '#FDE68A'; ctx.strokeStyle = '#D97706'; ctx.lineWidth = 2;
+                ctx.fillRect(x, cy - cakeHeight, sliceWidth, cakeHeight);
+                ctx.strokeRect(x, cy - cakeHeight, sliceWidth, cakeHeight);
+                
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(x, cy - cakeHeight/2 - 5, sliceWidth, 10);
+
+                ctx.fillStyle = '#EF4444';
+                ctx.beginPath(); ctx.arc(x + sliceWidth/2, cy - cakeHeight, 6, 0, Math.PI*2); ctx.fill();
+            }
+        }
+
+        // 4. 걸어가는 행인
+        function drawWalkingPerson(ctx, w, h, t) {
+            const sc = SCENARIOS[currentIdx];
+            const xVal = sc.logic(t);
+            const groundY = h * 0.7; const startX = w * 0.1; const endX = w * 0.9;
+            
+            ctx.strokeStyle = '#22C55E'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(w, groundY); ctx.stroke();
+            
+            const benchX = startX + 0.2 * (endX - startX) - 5;
+            ctx.fillStyle = '#8B4513'; ctx.fillRect(benchX, groundY - 15, 30, 5); ctx.fillRect(benchX+2, groundY-15, 4, 15); ctx.fillRect(benchX+24, groundY-15, 4, 15);
+            ctx.fillStyle = '#EF4444'; ctx.fillRect(endX, groundY - 40, 20, 15);
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(endX, groundY); ctx.lineTo(endX, groundY - 40); ctx.stroke();
+
+            const px = startX + xVal * (endX - startX);
+            ctx.save(); ctx.strokeStyle = '#1F2937'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            
+            const isResting = (t >= 0.4 && t < 0.7);
+            const bounce = (isResting || t === 0 || t === 1) ? 0 : Math.sin(t * 100) * 3;
+            const headY = groundY - 40 + bounce + (isResting ? 10 : 0);
+
+            ctx.beginPath(); ctx.arc(px, headY, 6, 0, Math.PI * 2); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(px, headY + 6); ctx.lineTo(px, headY + 25); ctx.stroke();
+            
+            if (isResting) {
+                ctx.beginPath(); ctx.moveTo(px, headY + 25); ctx.lineTo(px + 10, headY + 25); ctx.lineTo(px + 10, groundY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px, headY + 12); ctx.lineTo(px + 8, headY + 18); ctx.stroke();
+            } else {
+                const legSwing = (t===0||t===1) ? 0 : Math.sin(t * 100) * 10;
+                ctx.beginPath(); ctx.moveTo(px, headY + 25); ctx.lineTo(px - legSwing, groundY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px, headY + 25); ctx.lineTo(px + legSwing, groundY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px, headY + 12); ctx.lineTo(px + legSwing, headY + 20); ctx.stroke(); 
+                ctx.beginPath(); ctx.moveTo(px, headY + 12); ctx.lineTo(px - legSwing, headY + 20); ctx.stroke(); 
+            }
+            ctx.restore();
+        }
+
+        // 5. 대관람차
+        function drawFerrisWheel(ctx, w, h, t) {
+            const cx = w / 2; 
+            const cy = h / 2 - 20;
+            // 캔버스 크기에 비례하여 관람차 크기 조절
+            const radius = Math.min(w, h) * 0.25;
+            const groundY = h * 0.85;
+            
+            // 지지대 (기둥)
+            ctx.strokeStyle = '#9CA3AF'; ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx - radius*0.5, groundY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + radius*0.5, groundY); ctx.stroke();
+            
+            // 바닥
+            ctx.fillStyle = '#10B981'; ctx.fillRect(0, groundY, w, h - groundY);
+            
+            ctx.save();
+            ctx.translate(cx, cy);
+            
+            // 2바퀴 회전
+            const currentAngle = t * Math.PI * 2 * 2;
+            ctx.rotate(currentAngle);
+            
+            // 메인 휠
+            ctx.strokeStyle = '#6B7280'; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2); ctx.stroke();
+            
+            // 탑승칸 (8개)
+            const numCabins = 8;
+            for (let i = 0; i < numCabins; i++) {
+                const angle = (Math.PI / 2) + (i / numCabins) * Math.PI * 2;
+                
+                // 뼈대
+                ctx.strokeStyle = '#D1D5DB'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(angle)*radius, Math.sin(angle)*radius); ctx.stroke();
+                
+                // 탑승칸 수평 유지
+                ctx.save();
+                ctx.translate(Math.cos(angle)*radius, Math.sin(angle)*radius);
+                ctx.rotate(-currentAngle); 
+                
+                if (i === 0) {
+                    ctx.fillStyle = '#EF4444';
+                } else {
+                    ctx.fillStyle = '#FCD34D';
+                }
+                
+                ctx.fillRect(-10, 0, 20, 15);
+                ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(10, 0); ctx.lineTo(0, -10); ctx.fill();
+                
+                ctx.restore();
+            }
+            ctx.restore();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
