@@ -21,30 +21,30 @@
         body { font-size: 18px; }
     </style>
 </head>
-<body class="bg-blue-50 text-gray-800 h-screen flex flex-col font-sans overflow-hidden">
+<body class="bg-blue-50 text-gray-800 h-[100dvh] flex flex-col font-sans overflow-hidden">
 
-    <!-- 상단 패딩 축소 (p-4 -> py-3 px-4) -->
-    <header class="bg-white shadow-sm py-3 px-4 shrink-0 z-10 flex flex-col items-center">
-        <h1 class="text-xl md:text-2xl font-bold text-center mb-2 text-blue-900">어떤 상황인지 그래프로 그려볼까요?</h1>
+    <!-- 상단 패딩 축소 (py-2 px-4) -->
+    <header class="bg-white shadow-sm py-2 px-4 shrink-0 z-10 flex flex-col items-center">
+        <h1 class="text-lg md:text-xl font-bold text-center mb-2 text-blue-900">어떤 상황인지 그래프로 그려볼까요?</h1>
         <div id="tabs-container" class="flex overflow-x-auto gap-2 pb-1 scrollbar-hide justify-start md:justify-center px-2 w-full max-w-5xl">
             <!-- 탭 버튼 JS 동적 생성 -->
         </div>
     </header>
 
-    <!-- 메인 영역 최대 너비 확장 (max-w-6xl -> max-w-[1400px]) -->
-    <main class="flex-1 flex flex-col md:flex-row gap-4 p-3 md:p-4 min-h-0 w-full max-w-[1400px] mx-auto">
+    <!-- 메인 영역을 화면에 꽉 차게 (max-w 제한 해제, 태블릿 가로에 맞춘 p-2 md:p-3) -->
+    <main class="flex-1 flex flex-col md:flex-row gap-3 md:gap-4 p-2 md:p-3 min-h-0 w-full max-w-none mx-auto">
         
         <!-- 좌측: 영상 패널 -->
-        <div class="flex-1 bg-white rounded-xl shadow-md flex flex-col border border-gray-200 min-h-0">
-            <div class="p-3 md:p-4 bg-gray-50 rounded-t-xl border-b border-gray-200">
-                <h2 id="scenario-title" class="text-lg md:text-xl font-bold text-blue-800 mb-1 md:mb-2">시나리오 제목</h2>
-                <p id="scenario-desc" class="text-gray-700 text-sm md:text-base leading-snug md:leading-relaxed min-h-[3rem]">시나리오 설명</p>
+        <div class="flex-1 flex flex-col w-full md:w-1/2 bg-white rounded-xl shadow-md border border-gray-200 min-h-0 overflow-hidden">
+            <div class="p-3 bg-gray-50 border-b border-gray-200 shrink-0">
+                <h2 id="scenario-title" class="text-lg md:text-xl font-bold text-blue-800 mb-1">시나리오 제목</h2>
+                <p id="scenario-desc" class="text-gray-700 text-sm md:text-base leading-snug h-[2.5rem] md:h-[3rem] overflow-y-auto">시나리오 설명</p>
             </div>
-            <!-- 캔버스 max-w, max-h 제한 해제하여 영역 꽉 채움 -->
-            <div class="flex-1 relative p-2 md:p-4 flex justify-center items-center overflow-hidden bg-white">
-                <canvas id="visual-canvas" class="w-full h-full"></canvas>
+            <!-- 캔버스를 부모 요소에 절대값으로 꽉 채움 (여백 및 스크롤 방지) -->
+            <div class="flex-1 relative bg-white w-full h-full">
+                <canvas id="visual-canvas" class="absolute inset-0 w-full h-full"></canvas>
             </div>
-            <div class="p-2 md:p-3 bg-gray-100 rounded-b-xl border-t border-gray-200 flex justify-center items-center">
+            <div class="p-2 md:p-3 bg-gray-100 border-t border-gray-200 flex justify-center items-center shrink-0">
                 <button id="btn-video" class="px-5 py-2 md:px-6 md:py-2.5 bg-indigo-600 text-white rounded-lg font-bold shadow hover:bg-indigo-700 transition flex items-center gap-2">
                     <span>▶</span> <span id="btn-video-text">상황 영상 보기</span>
                 </button>
@@ -52,30 +52,30 @@
         </div>
 
         <!-- 우측: 그래프 패널 -->
-        <div class="flex-1 bg-white rounded-xl shadow-md flex flex-col border border-gray-200 min-h-0">
-            <div class="p-3 md:p-4 bg-gray-50 rounded-t-xl border-b border-gray-200 flex justify-between items-center h-[70px] md:h-[90px]">
+        <div class="flex-1 flex flex-col w-full md:w-1/2 bg-white rounded-xl shadow-md border border-gray-200 min-h-0 overflow-hidden">
+            <div class="p-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center shrink-0 h-[60px] md:h-[68px]">
                 <h2 class="text-lg md:text-xl font-bold text-blue-800">예상 그래프 그리기</h2>
                 <button id="btn-reset" class="px-3 py-1.5 md:px-4 md:py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition text-sm font-semibold hidden-el">
                     지우고 다시 그리기
                 </button>
             </div>
             
-            <!-- 캔버스 max-w, max-h 제한 해제하여 영역 꽉 채움 -->
-            <div class="flex-1 relative p-2 md:p-4 flex justify-center items-center overflow-hidden bg-white" id="graph-container">
-                <canvas id="graph-canvas" class="w-full h-full touch-none rounded-lg border-2 border-gray-300 bg-white"></canvas>
+            <!-- 캔버스를 부모 요소에 절대값으로 꽉 채움 -->
+            <div class="flex-1 relative bg-white w-full h-full" id="graph-container">
+                <canvas id="graph-canvas" class="absolute inset-0 w-full h-full touch-none bg-white"></canvas>
                 
-                <div id="draw-overlay" class="absolute inset-0 bg-white/70 flex flex-col justify-center items-center z-10 transition-opacity duration-300 rounded-lg">
+                <div id="draw-overlay" class="absolute inset-0 bg-white/70 flex flex-col justify-center items-center z-10 transition-opacity duration-300">
                     <div id="draw-prompt" class="text-gray-700 font-bold text-center bg-white px-4 py-2 md:px-5 md:py-3 rounded-xl shadow-md border border-gray-200 text-sm md:text-base">
                         먼저 왼쪽의 <b>[상황 영상 보기]</b>를 눌러<br>어떤 변화가 일어나는지 관찰하세요.
                     </div>
                 </div>
 
-                <div id="result-banner" class="absolute top-4 right-6 bg-blue-100/95 text-blue-900 font-bold px-4 py-1.5 rounded-lg shadow text-xs md:text-sm z-20 hidden-el border border-blue-300 whitespace-nowrap">
+                <div id="result-banner" class="absolute top-3 right-3 bg-blue-100/95 text-blue-900 font-bold px-3 py-1 rounded-lg shadow text-xs md:text-sm z-20 hidden-el border border-blue-300 whitespace-nowrap">
                     정답과 내 예상 비교 중 👀
                 </div>
             </div>
             
-            <div class="p-2 md:p-3 bg-gray-100 rounded-b-xl border-t border-gray-200 flex justify-center items-center">
+            <div class="p-2 md:p-3 bg-gray-100 border-t border-gray-200 flex justify-center items-center shrink-0">
                 <button id="btn-result" class="px-5 py-2 md:px-6 md:py-2.5 bg-blue-600 text-white rounded-lg font-bold shadow opacity-50 cursor-not-allowed transition hover:bg-blue-700 flex items-center gap-2" disabled>
                     <span>✓</span> <span>실제 변화 확인하기</span>
                 </button>
@@ -84,9 +84,9 @@
 
     </main>
 
-    <!-- 하단 패딩 축소 (p-4 -> py-2 px-4) -->
-    <footer class="bg-white py-2 px-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] shrink-0 flex justify-center items-center z-10 min-h-[50px]">
-        <div id="feedback-msg" class="text-base md:text-xl font-semibold text-gray-700 w-full text-center px-4">
+    <!-- 하단 패딩 및 높이 최적화 -->
+    <footer class="bg-white py-2 md:py-3 px-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] shrink-0 flex justify-center items-center z-10">
+        <div id="feedback-msg" class="text-base md:text-lg font-semibold text-gray-700 w-full text-center px-4">
             안내 메시지
         </div>
     </footer>
@@ -216,11 +216,12 @@
         }
 
         function resizeCanvas() {
-            const vRect = visualCanvas.getBoundingClientRect();
+            // 캔버스의 부모 요소를 기준으로 크기를 다시 계산하여 정확히 100% 채움
+            const vRect = visualCanvas.parentElement.getBoundingClientRect();
             visualCanvas.width = vRect.width; 
             visualCanvas.height = vRect.height;
             
-            const gRect = graphCanvas.getBoundingClientRect();
+            const gRect = graphCanvas.parentElement.getBoundingClientRect();
             graphCanvas.width = gRect.width; 
             graphCanvas.height = gRect.height;
         }
